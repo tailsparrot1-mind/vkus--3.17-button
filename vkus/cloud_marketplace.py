@@ -23,6 +23,10 @@ DEFAULT_PUBLISHABLE_KEY = "sb_publishable_srOxC-k9uOqtl51SWYz8dg_AZ7Pd6Do"
 class CloudMarketplaceError(RuntimeError):
     """A safe, user-displayable error returned by the cloud service."""
 
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 @dataclass
 class AuthSession:
@@ -95,7 +99,7 @@ class SupabaseMarketplaceClient:
                 message = message or "Доступ отклонён. Проверьте вход и права доступа."
             elif exc.code == 429:
                 message = "Слишком много запросов. Подождите немного и повторите."
-            raise CloudMarketplaceError(message or f"Ошибка облачной биржи (HTTP {exc.code}).") from None
+            raise CloudMarketplaceError(message or f"Ошибка облачной биржи (HTTP {exc.code}).", status_code=exc.code) from None
         except (urllib.error.URLError, TimeoutError, OSError):
             raise CloudMarketplaceError(
                 "Не удалось подключиться к облачной бирже. Проверьте интернет-соединение."
@@ -201,6 +205,14 @@ class SupabaseMarketplaceClient:
             )
             # Rotate the refresh token immediately; never trust an old access token.
             self.refresh_session()
+        except CloudMarketplaceError as exc:
+            # A temporary network/server failure must not destroy a valid refresh token.
+            if exc.status_code in (400, 401, 403):
+                self.session = None
+                self._delete_secure_session()
+                self.session_persistence_available = False
+            else:
+                self.session_persistence_available = True
         except Exception:
             self.session = None
             self._delete_secure_session()
@@ -212,10 +224,12 @@ class SupabaseMarketplaceClient:
         if getattr(self.session, "expires_at", None) and self.session.expires_at <= int(time.time()) + 60:
             try:
                 self.refresh_session()
-            except CloudMarketplaceError:
-                self.session = None
-                self._delete_secure_session()
-                raise CloudMarketplaceError("Сессия истекла или отозвана. Войдите снова.") from None
+            except CloudMarketplaceError as exc:
+                if exc.status_code in (400, 401, 403):
+                    self.session = None
+                    self._delete_secure_session()
+                    raise CloudMarketplaceError("Сессия истекла или отозвана. Войдите снова.") from None
+                raise
 
     def refresh_session(self):
         if not self.session:
