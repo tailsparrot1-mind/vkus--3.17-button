@@ -66,6 +66,9 @@ def main(out, geometry):
     assert 'ДЕМО' not in texts
     assert 'Опции анализа' in texts
     assert 'ГРАФИК АНАЛИЗА ГОРОДА' not in texts
+    # Suppress informational dialogs while exercising click handlers.
+    old_showinfo = messagebox.showinfo
+    messagebox.showinfo = lambda *args, **kwargs: None
     # The Exchange CTA opens the actual local-first demand/supply board.
     click(1480, 670)
     market_windows = [w for w in app.root.winfo_children()
@@ -90,8 +93,6 @@ def main(out, geometry):
     assert app.exchange_search_request['scope'] == 'all'
     assert app.exchange_search_request['sources'] == ['VK','Telegram','Avito','YouDo','Профи.ру','Форумы']
     # Lower-right settings action remains interactive.
-    old_showinfo = messagebox.showinfo
-    messagebox.showinfo = lambda *args, **kwargs: None
     click(1485, 867)
     messagebox.showinfo = old_showinfo
     app.exchange_entry.delete(0, 'end')
