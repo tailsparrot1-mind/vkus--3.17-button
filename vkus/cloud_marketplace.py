@@ -53,7 +53,8 @@ class SupabaseMarketplaceClient:
         return bool(self.session and self.session.access_token)
 
     def _request(self, method: str, path: str, payload: dict | None = None,
-                 *, authenticated: bool = False, query: dict | None = None):
+                 *, authenticated: bool = False, query: dict | None = None,
+                 prefer: str | None = None):
         url = self.url + path
         if query:
             url += "?" + urllib.parse.urlencode(query, doseq=True)
@@ -71,7 +72,7 @@ class SupabaseMarketplaceClient:
         if payload is not None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json"
-            headers["Prefer"] = "return=representation"
+            headers["Prefer"] = prefer or "return=representation"
         request = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
@@ -178,6 +179,31 @@ class SupabaseMarketplaceClient:
         result = self._request("GET", "/rest/v1/marketplace_listings",
                                authenticated=self.is_authenticated, query=query)
         return result or []
+
+    def get_my_profile(self) -> dict:
+        self._require_auth()
+        rows = self._request(
+            "GET", "/rest/v1/marketplace_profiles", authenticated=True,
+            query={"select": "id,display_name,city,avatar_url",
+                   "id": "eq." + str(self.session.user["id"]), "limit": 1},
+        )
+        return rows[0] if rows else {}
+
+    def save_my_profile(self, display_name: str, city: str = "") -> dict:
+        self._require_auth()
+        display_name = display_name.strip()
+        city = city.strip()
+        if not display_name or len(display_name) > 80:
+            raise ValueError("Имя профиля должно содержать от 1 до 80 символов.")
+        if len(city) > 80:
+            raise ValueError("Название города не должно превышать 80 символов.")
+        rows = self._request(
+            "POST", "/rest/v1/marketplace_profiles",
+            {"id": self.session.user["id"], "display_name": display_name, "city": city or None},
+            authenticated=True, query={"on_conflict": "id"},
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return rows[0] if rows else {"display_name": display_name, "city": city}
 
     def create_listing(self, payload: dict) -> dict:
         self._require_auth()
