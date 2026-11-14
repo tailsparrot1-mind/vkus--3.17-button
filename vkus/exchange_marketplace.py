@@ -420,6 +420,19 @@ def open_cloud_marketplace_window(parent):
                              fg="#9fb4df", font=("DejaVu Sans", 9))
     account_label.pack(side="right", padx=8)
 
+    def update_account_label(display_name=None):
+        if not client.is_authenticated:
+            update_account_label()
+            return
+        name = display_name or client.session.user.get("email", "Вход выполнен")
+        if client.session_persistence_available:
+            account_label.configure(text=f"{name} · защищённая сессия", fg="#16f0a1")
+        else:
+            account_label.configure(text=f"{name} · только до закрытия", fg="#ffc46b")
+
+    if client.is_authenticated:
+        update_account_label()
+
     auth_bar = tk.Frame(shell, bg="#0a1731")
     auth_bar.pack(fill="x", padx=18, pady=(0, 10))
     email_var = tk.StringVar()
@@ -528,8 +541,7 @@ def open_cloud_marketplace_window(parent):
         try:
             client.sign_in(email_var.get(), password_var.get())
             profile = client.get_my_profile()
-            account_label.configure(text=profile.get("display_name") or client.session.user.get("email", "Вход выполнен"),
-                                     fg="#16f0a1")
+            update_account_label(profile.get("display_name"))
             refresh()
         except (CloudMarketplaceError, ValueError) as exc:
             notify_error(exc)
@@ -538,8 +550,7 @@ def open_cloud_marketplace_window(parent):
         try:
             result = client.sign_up(email_var.get(), password_var.get())
             if client.is_authenticated:
-                account_label.configure(text=client.session.user.get("email", "Вход выполнен"),
-                                         fg="#16f0a1")
+                update_account_label()
                 refresh()
             else:
                 messagebox.showinfo(
