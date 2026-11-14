@@ -370,6 +370,7 @@ def open_marketplace_window(parent):
                   activebackground="#7540c8", activeforeground="white",
                   relief="flat", bd=0, padx=12, pady=7,
                   font=("DejaVu Sans", 8, "bold"), cursor="hand2").pack(side="right", padx=(6,0))
+    action("Входящие отклики", open_inbox, "#24539b")
     action("Удалить", remove, "#64263f")
     action("В архив", lambda: change_status("Архив"))
     action("Завершено", lambda: change_status("Завершено"))
@@ -680,6 +681,105 @@ def open_cloud_marketplace_window(parent):
             messagebox.showinfo("Отклик отправлен", "Ваш отклик сохранён в общей Бирже.", parent=win)
         except (CloudMarketplaceError, ValueError) as exc:
             notify_error(exc)
+
+    def open_inbox():
+        if not client.is_authenticated:
+            messagebox.showinfo("Входящие отклики", "Сначала войдите в аккаунт.", parent=win)
+            return
+        inbox = tk.Toplevel(win)
+        inbox.title("Vkus — Входящие отклики")
+        inbox.configure(bg="#07122a")
+        inbox.geometry("900x570")
+        inbox.minsize(720, 440)
+        inbox.transient(win)
+        tk.Label(inbox, text="ВХОДЯЩИЕ ОТКЛИКИ", bg="#07122a", fg="#d18aff",
+                 font=("DejaVu Sans", 15, "bold")).pack(anchor="w", padx=18, pady=(16, 10))
+        frame = tk.Frame(inbox, bg="#07122a")
+        frame.pack(fill="both", expand=True, padx=18, pady=(0, 10))
+        cols = ("listing", "message", "status", "created")
+        inbox_table = ttk.Treeview(frame, columns=cols, show="headings",
+                                   style="CloudMarket.Treeview")
+        for key, title, width in (
+            ("listing", "Объявление", 230), ("message", "Сообщение", 390),
+            ("status", "Статус", 110), ("created", "Дата", 130),
+        ):
+            inbox_table.heading(key, text=title)
+            inbox_table.column(key, width=width, anchor="w")
+        sb = ttk.Scrollbar(frame, orient="vertical", command=inbox_table.yview)
+        inbox_table.configure(yscrollcommand=sb.set)
+        inbox_table.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        note = tk.Label(inbox, text="Выберите отклик для просмотра полного сообщения.",
+                        bg="#0a1731", fg="#9fb4df", anchor="w", justify="left",
+                        padx=12, pady=10, wraplength=840)
+        note.pack(fill="x", padx=18, pady=(0, 8))
+        inbox_rows = {}
+
+        def load_inbox():
+            try:
+                rows = client.list_incoming_responses(limit=100)
+            except (CloudMarketplaceError, ValueError) as exc:
+                notify_error(exc)
+                return
+            inbox_rows.clear()
+            inbox_table.delete(*inbox_table.get_children())
+            for row in rows:
+                key = str(row["id"])
+                inbox_rows[key] = row
+                listing = row.get("listing") or {}
+                created = (row.get("created_at") or "")[:16].replace("T", " ")
+                preview = row.get("message", "").replace("\\n", " ")
+                if len(preview) > 100:
+                    preview = preview[:97] + "…"
+                inbox_table.insert("", "end", iid=key, values=(
+                    listing.get("title") or "Объявление",
+                    preview, row.get("status") or "Новый", created,
+                ))
+            note.configure(text=f"Всего входящих откликов: {len(rows)}")
+
+        def show_incoming(_event=None):
+            selection = inbox_table.selection()
+            row = inbox_rows.get(selection[0]) if selection else None
+            if not row:
+                return
+            listing = row.get("listing") or {}
+            note.configure(text=(
+                f"Объявление: {listing.get('title') or '—'}\\n"
+                f"Сообщение: {row.get('message') or '—'}\\n"
+                f"Статус: {row.get('status') or 'Новый'}\\n"
+                f"Дата: {(row.get('created_at') or '')[:19].replace('T', ' ')}"
+            ))
+
+        def set_incoming_status(status):
+            selection = inbox_table.selection()
+            row = inbox_rows.get(selection[0]) if selection else None
+            if not row:
+                messagebox.showinfo("Отклики", "Сначала выберите отклик.", parent=inbox)
+                return
+            try:
+                client.update_response_status(str(row["id"]), status)
+            except (CloudMarketplaceError, ValueError) as exc:
+                notify_error(exc)
+                return
+            load_inbox()
+
+        inbox_table.bind("<<TreeviewSelect>>", show_incoming)
+        bar = tk.Frame(inbox, bg="#07122a")
+        bar.pack(fill="x", padx=18, pady=(0, 16))
+        tk.Label(bar, text="Статус отклика:", bg="#07122a", fg="#8fa5d4",
+                 font=("DejaVu Sans", 8)).pack(side="left")
+        for caption, status, color in (
+            ("Отметить просмотренным", "Просмотрен", "#24539b"),
+            ("Принять", "Принят", "#236b59"),
+            ("Отклонить", "Отклонён", "#64263f"),
+        ):
+            tk.Button(bar, text=caption,
+                      command=lambda value=status: set_incoming_status(value),
+                      bg=color, fg="white", relief="flat", padx=10, pady=7,
+                      font=("DejaVu Sans", 8, "bold")).pack(side="right", padx=(6, 0))
+        tk.Button(bar, text="Обновить", command=load_inbox, bg="#182b55",
+                  fg="white", relief="flat", padx=12, pady=7).pack(side="right", padx=6)
+        load_inbox()
 
     def remove():
         item = selected()
