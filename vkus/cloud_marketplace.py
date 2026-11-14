@@ -256,6 +256,36 @@ class SupabaseMarketplaceClient:
         )
         return result or []
 
+    def list_incoming_responses(self, *, limit: int = 100, offset: int = 0) -> list[dict]:
+        """Return responses to listings owned by the signed-in user (RLS enforced)."""
+        self._require_auth()
+        result = self._request(
+            "GET", "/rest/v1/marketplace_responses",
+            authenticated=True,
+            query={
+                "select": "id,listing_id,sender_id,message,status,created_at,listing:marketplace_listings!inner(id,title,owner_id)",
+                "listing.owner_id": "eq." + str(self.session.user["id"]),
+                "order": "created_at.desc",
+                "limit": max(1, min(int(limit), 100)),
+                "offset": max(0, int(offset)),
+            },
+        )
+        return result or []
+
+    def update_response_status(self, response_id: str, status: str) -> dict:
+        """Change a response status; database RLS restricts this to listing owners."""
+        self._require_auth()
+        if status not in ("Просмотрен", "Принят", "Отклонён"):
+            raise ValueError("Недопустимый статус отклика.")
+        result = self._request(
+            "PATCH", "/rest/v1/marketplace_responses",
+            {"status": status}, authenticated=True,
+            query={"id": "eq." + str(response_id)},
+        )
+        if not result:
+            raise CloudMarketplaceError("Отклик не найден или нет прав на изменение.")
+        return result[0]
+
     def _require_auth(self):
         if not self.is_authenticated:
             raise CloudMarketplaceError("Для этого действия войдите в аккаунт Vkus.")
