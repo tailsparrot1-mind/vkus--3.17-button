@@ -78,6 +78,13 @@ def main(out, geometry):
     assert any(isinstance(w, ttk.Treeview) for w in market_window.winfo_children()[0].winfo_children()
                for w in w.winfo_children()) or any(isinstance(w, ttk.Treeview)
                for w in market_window.winfo_children()[0].winfo_children())
+    market_window.update_idletasks(); market_window.update()
+    mx, my = market_window.winfo_rootx(), market_window.winfo_rooty()
+    market_image = ImageGrab.grab(bbox=(mx, my, mx + market_window.winfo_width(),
+                                        my + market_window.winfo_height())).convert('RGB')
+    market_out = str(Path(out).with_name('Vkus_3.28_MARKETPLACE.png'))
+    market_image.save(market_out)
+    print(f'MARKETPLACE_UI_SCREENSHOT={market_out} SIZE={market_image.width}x{market_image.height}')
     market_window.destroy()
     app.root.update_idletasks(); app.root.update()
     app._exchange_set_filter('Город', 'Орск')
