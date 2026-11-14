@@ -75,6 +75,8 @@ def main(out, geometry):
     original_list = SupabaseMarketplaceClient.list_listings
     original_inbox = SupabaseMarketplaceClient.list_incoming_responses
     original_status = SupabaseMarketplaceClient.update_response_status
+    original_auth = SupabaseMarketplaceClient.is_authenticated
+    SupabaseMarketplaceClient.is_authenticated = property(lambda self: True)
     SupabaseMarketplaceClient.list_listings = lambda self, **kwargs: []
     SupabaseMarketplaceClient.list_incoming_responses = lambda self, **kwargs: [{
         "id": "response-smoke-1", "listing_id": "listing-smoke-1",
@@ -125,6 +127,7 @@ def main(out, geometry):
     SupabaseMarketplaceClient.list_listings = original_list
     SupabaseMarketplaceClient.list_incoming_responses = original_inbox
     SupabaseMarketplaceClient.update_response_status = original_status
+    SupabaseMarketplaceClient.is_authenticated = original_auth
     app.root.update_idletasks(); app.root.update()
     app._exchange_set_filter('Город', 'Орск')
     assert app.exchange_city == 'Орск'
