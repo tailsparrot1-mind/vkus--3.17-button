@@ -404,11 +404,9 @@ def _exchange_redraw(self, _event=None):
             dot(1397, top + 9, 9, "#10213d", "#405078")
         label(1417, top + 1, category, 10, "#dce6ff",
               width=182, fit=True)
-    rounded(1372, 631, 1607, 688, "#21104d", "#9c35ff", 12, 1)
-    image_icon("vkus_lightning", 1428, 665, 30, 34)
-    label(1445, 639, "Vkus анализирует,", 11, "#d98cff", "bold", width=155, fit=True)
-    label(1445, 654, "чтобы вы находили", 9, "#e2d9ff", width=155, fit=True)
-    label(1445, 668, "именно то, что нужно", 9, "#e2d9ff", width=155, fit=True)
+    gradient_button(1372, 642, 1607, 688, "#6720c9", "#176fe8", "#b45cff", 12)
+    image_icon("vkus_lightning", 1410, 665, 25, 29)
+    label(1510, 656, "Открыть биржу объявлений", 10, "#ffffff", "bold", "center", width=175, fit=True)
 
     # Lower information area: findings, city geography, and the required
     # city-analysis chart. The chart's plotted curve is clearly labelled DEMO.
