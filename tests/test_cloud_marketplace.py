@@ -57,6 +57,15 @@ class CloudMarketplaceClientTests(unittest.TestCase):
         self.assertEqual(query["offset"], 40)
         self.assertIn("цветы", query["or"])
 
+    def test_price_must_be_nonnegative_number(self):
+        payload = {"kind": "Ищу", "category": "Товары", "title": "Куплю цветы",
+                   "description": "Букет", "city": "Орск", "price": "не знаю"}
+        with self.assertRaises(ValueError):
+            self.client._normalize_listing(payload)
+        payload["price"] = "-1"
+        with self.assertRaises(ValueError):
+            self.client._normalize_listing(payload)
+
     def test_invalid_listing_is_rejected(self):
         with self.assertRaises(ValueError):
             self.client._normalize_listing({"kind": "Неверно"})
