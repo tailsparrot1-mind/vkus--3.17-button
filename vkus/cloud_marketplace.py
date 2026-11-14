@@ -252,13 +252,26 @@ class SupabaseMarketplaceClient:
         city = payload["city"].strip()
         if len(title) > 120 or len(description) > 5000 or len(city) > 80:
             raise ValueError("Превышена допустимая длина заголовка, описания или города.")
+        raw_price = payload.get("price")
+        if raw_price not in (None, ""):
+            try:
+                raw_price = float(str(raw_price).replace(",", "."))
+                if raw_price < 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError("Цена или бюджет должны быть неотрицательным числом.") from None
+        else:
+            raw_price = None
+        currency = payload.get("currency") or "RUB"
+        if currency not in ("RUB", "EUR", "USD"):
+            raise ValueError("Выберите поддерживаемую валюту.")
         return {
             "kind": payload["kind"],
             "category": payload["category"],
             "title": title,
             "description": description,
             "city": city,
-            "price": payload.get("price") or None,
-            "currency": payload.get("currency") or "RUB",
+            "price": raw_price,
+            "currency": currency,
             "contact": (payload.get("contact") or "").strip(),
         }
