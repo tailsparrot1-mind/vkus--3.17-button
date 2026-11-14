@@ -459,6 +459,10 @@ class VkusApp:
                 self.exchange_categories_selected = selected
                 self._exchange_redraw()
                 return
+        if 1372 <= x <= 1607 and 642 <= y <= 688:
+            from .exchange_marketplace import open_marketplace_window
+            open_marketplace_window(self.root)
+            return
         if 1360 <= x <= 1618 and 373 <= y <= 700:
             messagebox.showinfo('Что можно найти?',
                 'Vkus помогает находить целевую аудиторию для любой ниши: потенциальных покупателей, людей с актуальной потребностью, обсуждения и рекомендации, связанные с вашим продуктом или услугой.\n\nНапример, цветочный магазин ищет людей, которым нужны цветы, а не сотрудников.', parent=self.exchange_window); return
