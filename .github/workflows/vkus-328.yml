@@ -29,10 +29,11 @@ jobs:
       - name: Run message UI test
         run: xvfb-run -a -s "-screen 0 1672x941x24" python tests/test_messages_ui.py
       - name: Launch Vkus and capture actual UI
-        run: xvfb-run -a -s "-screen 0 1672x941x24" python tools/render_exchange_full_app.py --output artifacts/Vkus_3.28_LAUNCH.png --geometry 1672x941
-      - name: Package runnable application
         run: |
           mkdir -p artifacts
+          xvfb-run -a -s "-screen 0 1672x941x24" python tools/render_exchange_full_app.py --output artifacts/Vkus_3.28_LAUNCH.png --geometry 1672x941
+      - name: Package runnable application
+        run: |
           zip -qr artifacts/Vkus_3.28_NO_SPLASH.zip main.py run.sh install.sh requirements.txt README.md vkus data -x '*/__pycache__/*' '*.pyc'
           sha256sum artifacts/Vkus_3.28_NO_SPLASH.zip > artifacts/SHA256SUMS.txt
           du -h artifacts/Vkus_3.28_NO_SPLASH.zip
