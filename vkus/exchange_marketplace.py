@@ -421,10 +421,11 @@ def open_cloud_marketplace_window(parent):
     account_label.pack(side="right", padx=8)
 
     def update_account_label(display_name=None):
-        if not client.is_authenticated:
-            update_account_label()
+        session = getattr(client, "session", None)
+        if not session or not getattr(session, "user", None):
+            account_label.configure(text="Не выполнен вход", fg="#9fb4df")
             return
-        name = display_name or client.session.user.get("email", "Вход выполнен")
+        name = display_name or session.user.get("email", "Вход выполнен")
         if client.session_persistence_available:
             account_label.configure(text=f"{name} · защищённая сессия", fg="#16f0a1")
         else:
