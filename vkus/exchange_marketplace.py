@@ -728,7 +728,7 @@ def open_cloud_marketplace_window(parent):
                 inbox_rows[key] = row
                 listing = row.get("listing") or {}
                 created = (row.get("created_at") or "")[:16].replace("T", " ")
-                preview = row.get("message", "").replace("\\n", " ")
+                preview = row.get("message", "").replace("\n", " ")
                 if len(preview) > 100:
                     preview = preview[:97] + "…"
                 inbox_table.insert("", "end", iid=key, values=(
@@ -744,9 +744,9 @@ def open_cloud_marketplace_window(parent):
                 return
             listing = row.get("listing") or {}
             note.configure(text=(
-                f"Объявление: {listing.get('title') or '—'}\\n"
-                f"Сообщение: {row.get('message') or '—'}\\n"
-                f"Статус: {row.get('status') or 'Новый'}\\n"
+                f"Объявление: {listing.get('title') or '—'}\n"
+                f"Сообщение: {row.get('message') or '—'}\n"
+                f"Статус: {row.get('status') or 'Новый'}\n"
                 f"Дата: {(row.get('created_at') or '')[:19].replace('T', ' ')}"
             ))
 
