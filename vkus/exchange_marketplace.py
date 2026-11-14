@@ -370,7 +370,7 @@ def open_marketplace_window(parent):
                   activebackground="#7540c8", activeforeground="white",
                   relief="flat", bd=0, padx=12, pady=7,
                   font=("DejaVu Sans", 8, "bold"), cursor="hand2").pack(side="right", padx=(6,0))
-    action("Входящие отклики", open_inbox, "#24539b")
+    action("Отклики", open_inbox, "#24539b")
     action("Удалить", remove, "#64263f")
     action("В архив", lambda: change_status("Архив"))
     action("Завершено", lambda: change_status("Завершено"))
