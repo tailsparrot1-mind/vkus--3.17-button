@@ -73,7 +73,18 @@ def main(out, geometry):
     # The Exchange CTA opens the shared cloud marketplace. Stub only the
     # read request so this UI smoke test never depends on external network.
     original_list = SupabaseMarketplaceClient.list_listings
+    original_inbox = SupabaseMarketplaceClient.list_incoming_responses
+    original_status = SupabaseMarketplaceClient.update_response_status
     SupabaseMarketplaceClient.list_listings = lambda self, **kwargs: []
+    SupabaseMarketplaceClient.list_incoming_responses = lambda self, **kwargs: [{
+        "id": "response-smoke-1", "listing_id": "listing-smoke-1",
+        "sender_id": "sender-smoke-1", "message": "Здравствуйте! Интересует ваше предложение. Подскажите условия и сроки.",
+        "status": "Новый", "created_at": "2026-11-14T18:30:00+00:00",
+        "listing": {"id": "listing-smoke-1", "title": "Ищу поставщика упаковки", "owner_id": "owner-smoke-1"},
+    }]
+    SupabaseMarketplaceClient.update_response_status = lambda self, response_id, status: {
+        "id": response_id, "status": status
+    }
     click(1480, 670)
     market_windows = [w for w in app.root.winfo_children()
                       if isinstance(w, tk.Toplevel) and w.title() == 'Vkus — Облачная биржа']
@@ -86,6 +97,23 @@ def main(out, geometry):
     assert any(isinstance(w, ttk.Treeview) for w in descendants(market_window))
     assert any(isinstance(w, tk.Button) and w.cget('text') == 'РЕГИСТРАЦИЯ'
                for w in descendants(market_window))
+    inbox_button = next(w for w in descendants(market_window)
+                        if isinstance(w, tk.Button) and w.cget('text') == 'Отклики')
+    inbox_button.invoke()
+    inbox_windows = [w for w in market_window.winfo_children()
+                     if isinstance(w, tk.Toplevel) and w.title() == 'Vkus — Входящие отклики']
+    assert len(inbox_windows) == 1
+    inbox_window = inbox_windows[0]
+    assert any(isinstance(w, ttk.Treeview) and w.get_children()
+               for w in descendants(inbox_window))
+    inbox_window.update_idletasks(); inbox_window.update()
+    ix, iy = inbox_window.winfo_rootx(), inbox_window.winfo_rooty()
+    inbox_image = ImageGrab.grab(bbox=(ix, iy, ix + inbox_window.winfo_width(),
+                                       iy + inbox_window.winfo_height())).convert('RGB')
+    inbox_out = str(Path(out).with_name('Vkus_3.28_INCOMING_RESPONSES.png'))
+    inbox_image.save(inbox_out)
+    print(f'INCOMING_RESPONSES_UI_SCREENSHOT={inbox_out} SIZE={inbox_image.width}x{inbox_image.height}')
+    inbox_window.destroy()
     market_window.update_idletasks(); market_window.update()
     mx, my = market_window.winfo_rootx(), market_window.winfo_rooty()
     market_image = ImageGrab.grab(bbox=(mx, my, mx + market_window.winfo_width(),
@@ -95,6 +123,8 @@ def main(out, geometry):
     print(f'CLOUD_MARKETPLACE_UI_SCREENSHOT={market_out} SIZE={market_image.width}x{market_image.height}')
     market_window.destroy()
     SupabaseMarketplaceClient.list_listings = original_list
+    SupabaseMarketplaceClient.list_incoming_responses = original_inbox
+    SupabaseMarketplaceClient.update_response_status = original_status
     app.root.update_idletasks(); app.root.update()
     app._exchange_set_filter('Город', 'Орск')
     assert app.exchange_city == 'Орск'
