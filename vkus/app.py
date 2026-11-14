@@ -460,8 +460,8 @@ class VkusApp:
                 self._exchange_redraw()
                 return
         if 1372 <= x <= 1607 and 642 <= y <= 688:
-            from .exchange_marketplace import open_marketplace_window
-            open_marketplace_window(self.root)
+            from .exchange_marketplace import open_cloud_marketplace_window
+            open_cloud_marketplace_window(self.root)
             return
         if 1360 <= x <= 1618 and 373 <= y <= 700:
             messagebox.showinfo('Что можно найти?',
