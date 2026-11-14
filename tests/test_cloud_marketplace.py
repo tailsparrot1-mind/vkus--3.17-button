@@ -19,6 +19,16 @@ class CloudMarketplaceClientTests(unittest.TestCase):
         self.assertEqual(self.client.session.user["id"], "user-1")
         self.assertIn("grant_type=password", request.call_args.args[1])
 
+    def test_auth_session_is_persisted_only_through_keyring(self):
+        response = {"access_token": "access", "refresh_token": "refresh",
+                    "user": {"id": "user-1"}, "expires_in": 3600}
+        with patch.object(self.client, "_request", return_value=response), \
+             patch.object(self.client, "_keyring") as keyring_factory:
+            fake = type("Keyring", (), {"set_password": lambda *args: None})()
+            keyring_factory.return_value = fake
+            self.client.sign_in("person@example.com", "long-password")
+        self.assertTrue(self.client.session_persistence_available)
+
     def test_signup_validation(self):
         with self.assertRaises(ValueError):
             self.client.sign_up("not-an-email", "long-password")
