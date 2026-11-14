@@ -527,7 +527,8 @@ def open_cloud_marketplace_window(parent):
     def sign_in():
         try:
             client.sign_in(email_var.get(), password_var.get())
-            account_label.configure(text=client.session.user.get("email", "Вход выполнен"),
+            profile = client.get_my_profile()
+            account_label.configure(text=profile.get("display_name") or client.session.user.get("email", "Вход выполнен"),
                                      fg="#16f0a1")
             refresh()
         except (CloudMarketplaceError, ValueError) as exc:
@@ -557,6 +558,44 @@ def open_cloud_marketplace_window(parent):
             notify_error(exc)
         account_label.configure(text="Не выполнен вход", fg="#9fb4df")
         refresh()
+
+    def edit_profile():
+        if not client.is_authenticated:
+            messagebox.showinfo("Профиль", "Сначала войдите в аккаунт.", parent=win)
+            return
+        try:
+            current = client.get_my_profile()
+        except CloudMarketplaceError as exc:
+            notify_error(exc)
+            return
+        dialog = tk.Toplevel(win)
+        dialog.title("Профиль Vkus")
+        dialog.configure(bg="#091735")
+        dialog.transient(win)
+        dialog.grab_set()
+        dialog.geometry("430x260")
+        form = tk.Frame(dialog, bg="#091735")
+        form.pack(fill="both", expand=True, padx=22, pady=18)
+        name_var = tk.StringVar(value=current.get("display_name") or
+                                client.session.user.get("email", "").split("@")[0])
+        city_var = tk.StringVar(value=current.get("city") or "")
+        for caption, variable in (("Имя / название организации", name_var), ("Город", city_var)):
+            tk.Label(form, text=caption, bg="#091735", fg="#a9badc",
+                     font=("DejaVu Sans", 9, "bold")).pack(anchor="w", pady=(8, 2))
+            tk.Entry(form, textvariable=variable, bg="#102044", fg="white",
+                     insertbackground="white", relief="flat").pack(fill="x", ipady=5)
+        def save_profile():
+            try:
+                saved = client.save_my_profile(name_var.get(), city_var.get())
+            except (CloudMarketplaceError, ValueError) as exc:
+                notify_error(exc)
+                return
+            account_label.configure(text=saved.get("display_name") or name_var.get(),
+                                     fg="#16f0a1")
+            dialog.destroy()
+        tk.Button(form, text="СОХРАНИТЬ ПРОФИЛЬ", command=save_profile,
+                  bg="#6330b4", fg="white", relief="flat", padx=14, pady=8).pack(
+                      anchor="e", pady=(18, 0))
 
     def create_or_edit(existing=None):
         if not client.is_authenticated:
@@ -682,6 +721,7 @@ def open_cloud_marketplace_window(parent):
               relief="flat", padx=12, pady=6).pack(side="left", padx=4)
     action("Удалить", remove, "#64263f")
     action("Редактировать", edit)
+    action("Профиль", edit_profile, "#24539b")
     action("↩ Откликнуться", respond, "#24539b")
     action("+ Добавить объявление", create_or_edit, "#6330b4")
 
