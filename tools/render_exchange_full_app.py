@@ -82,7 +82,6 @@ def main(out, geometry):
     app._exchange_set_filter('Город', 'Оренбург')
     # Selected-source search captures exactly the chosen platform.
     app.exchange_query_var.set('цветочный магазин')
-    captured.clear()
     click(1100, 460)
     assert app.exchange_search_request['scope'] == 'selected'
     assert app.exchange_search_request['sources'] == ['Avito']
@@ -91,6 +90,8 @@ def main(out, geometry):
     assert app.exchange_search_request['scope'] == 'all'
     assert app.exchange_search_request['sources'] == ['VK','Telegram','Avito','YouDo','Профи.ру','Форумы']
     # Lower-right settings action remains interactive.
+    old_showinfo = messagebox.showinfo
+    messagebox.showinfo = lambda *args, **kwargs: None
     click(1485, 867)
     messagebox.showinfo = old_showinfo
     app.exchange_entry.delete(0, 'end')
