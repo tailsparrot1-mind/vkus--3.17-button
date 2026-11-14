@@ -370,7 +370,6 @@ def open_marketplace_window(parent):
                   activebackground="#7540c8", activeforeground="white",
                   relief="flat", bd=0, padx=12, pady=7,
                   font=("DejaVu Sans", 8, "bold"), cursor="hand2").pack(side="right", padx=(6,0))
-    action("Отклики", open_inbox, "#24539b")
     action("Удалить", remove, "#64263f")
     action("В архив", lambda: change_status("Архив"))
     action("Завершено", lambda: change_status("Завершено"))
@@ -813,6 +812,7 @@ def open_cloud_marketplace_window(parent):
                   font=("DejaVu Sans", 8, "bold"), cursor="hand2").pack(
                       side="right", padx=(6, 0))
 
+    action("Отклики", open_inbox, "#24539b")
     tk.Button(auth_bar, text="ВОЙТИ", command=sign_in, bg="#24539b", fg="white",
               relief="flat", padx=12, pady=6).pack(side="left", padx=(12, 4))
     tk.Button(auth_bar, text="РЕГИСТРАЦИЯ", command=sign_up, bg="#6330b4", fg="white",
