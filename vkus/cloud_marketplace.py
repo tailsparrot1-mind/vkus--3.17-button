@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -43,6 +44,8 @@ class SupabaseMarketplaceClient:
         )
         self.timeout = timeout
         self.session: AuthSession | None = None
+        self.session_persistence_available = False
+        self._restore_secure_session()
         if not self.url.startswith("https://"):
             raise ValueError("Для облачной биржи требуется HTTPS URL Supabase.")
         if not self.publishable_key.startswith(("sb_publishable_", "eyJ")):
@@ -55,6 +58,8 @@ class SupabaseMarketplaceClient:
     def _request(self, method: str, path: str, payload: dict | None = None,
                  *, authenticated: bool = False, query: dict | None = None,
                  prefer: str | None = None):
+        if authenticated:
+            self._ensure_fresh_session()
         url = self.url + path
         if query:
             url += "?" + urllib.parse.urlencode(query, doseq=True)
@@ -123,7 +128,7 @@ class SupabaseMarketplaceClient:
             )
         return result
 
-    def _accept_auth_result(self, result: dict | None):
+    def _accept_auth_result(self, result: dict | None, *, persist: bool = True):
         if not result or not result.get("access_token") or not result.get("refresh_token"):
             self.session = None
             return
@@ -131,8 +136,86 @@ class SupabaseMarketplaceClient:
             access_token=result["access_token"],
             refresh_token=result["refresh_token"],
             user=result.get("user") or {},
-            expires_at=result.get("expires_at"),
+            expires_at=result.get("expires_at") or (int(time.time()) + int(result.get("expires_in", 3600))),
         )
+        if persist:
+            self.session_persistence_available = self._save_secure_session()
+
+    def _keyring(self):
+        try:
+            import keyring
+            backend = keyring.get_keyring()
+            if getattr(backend, "priority", 0) <= 0:
+                return None
+            return keyring
+        except Exception:
+            return None
+
+    def _secure_store_account(self) -> str:
+        return self.url
+
+    def _save_secure_session(self) -> bool:
+        if not self.session:
+            return False
+        keyring = self._keyring()
+        if keyring is None:
+            return False
+        try:
+            payload = {"access_token": self.session.access_token,
+                       "refresh_token": self.session.refresh_token,
+                       "user": self.session.user,
+                       "expires_at": self.session.expires_at}
+            keyring.set_password("Vkus.Supabase.Marketplace", self._secure_store_account(),
+                                 json.dumps(payload, ensure_ascii=False))
+            return True
+        except Exception:
+            return False
+
+    def _delete_secure_session(self):
+        keyring = self._keyring()
+        if keyring is None:
+            return
+        try:
+            keyring.delete_password("Vkus.Supabase.Marketplace", self._secure_store_account())
+        except Exception:
+            pass
+
+    def _restore_secure_session(self):
+        keyring = self._keyring()
+        if keyring is None:
+            self.session_persistence_available = False
+            return
+        try:
+            raw = keyring.get_password("Vkus.Supabase.Marketplace", self._secure_store_account())
+            if not raw:
+                self.session_persistence_available = True
+                return
+            saved = json.loads(raw)
+            if not saved.get("refresh_token") or not saved.get("user", {}).get("id"):
+                self._delete_secure_session()
+                return
+            self.session = AuthSession(
+                access_token=str(saved.get("access_token") or ""),
+                refresh_token=str(saved["refresh_token"]),
+                user=saved["user"], expires_at=saved.get("expires_at"),
+            )
+            # Rotate the refresh token immediately; never trust an old access token.
+            self.refresh_session()
+        except Exception:
+            self.session = None
+            self._delete_secure_session()
+            self.session_persistence_available = False
+
+    def _ensure_fresh_session(self):
+        if not self.session:
+            raise CloudMarketplaceError("Сначала войдите в аккаунт Vkus.")
+        if self.session.expires_at and self.session.expires_at <= int(time.time()) + 60:
+            try:
+                self.refresh_session()
+            except CloudMarketplaceError:
+                self.session = None
+                self._delete_secure_session()
+                raise CloudMarketplaceError("Сессия истекла или отозвана. Войдите снова.") from None
 
     def refresh_session(self):
         if not self.session:
@@ -141,6 +224,7 @@ class SupabaseMarketplaceClient:
             "POST",
             "/auth/v1/token?grant_type=refresh_token",
             {"refresh_token": self.session.refresh_token},
+            authenticated=False,
         )
         self._accept_auth_result(result)
         if not self.session:
@@ -153,6 +237,8 @@ class SupabaseMarketplaceClient:
                 self._request("POST", "/auth/v1/logout", authenticated=True)
             finally:
                 self.session = None
+                self._delete_secure_session()
+                self.session_persistence_available = bool(self._keyring())
 
     def list_listings(self, *, search: str = "", kind: str = "Все типы",
                       category: str = "Все категории", city: str = "",
