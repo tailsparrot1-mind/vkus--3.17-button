@@ -6,7 +6,7 @@ from pathlib import Path
 import sys, types, tkinter as tk
 from types import SimpleNamespace
 from PIL import ImageGrab
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 mods = [
     'selenium','selenium.webdriver','selenium.webdriver.firefox',
@@ -66,13 +66,17 @@ def main(out, geometry):
     assert 'ДЕМО' not in texts
     assert 'Опции анализа' in texts
     assert 'ГРАФИК АНАЛИЗА ГОРОДА' not in texts
-    # The help action explains audience discovery for any niche, not only jobs/services.
-    captured = []
-    old_showinfo = messagebox.showinfo
-    messagebox.showinfo = lambda title, message, **kwargs: captured.append((title, message))
+    # The Exchange CTA opens the actual local-first demand/supply board.
     click(1480, 670)
-    assert captured and 'целевую аудиторию для любой ниши' in captured[-1][1]
-    assert 'цветочный магазин' in captured[-1][1]
+    market_windows = [w for w in app.root.winfo_children()
+                      if isinstance(w, tk.Toplevel) and w.title() == 'Vkus — Биржа объявлений']
+    assert len(market_windows) == 1
+    market_window = market_windows[0]
+    assert any(isinstance(w, ttk.Treeview) for w in market_window.winfo_children()[0].winfo_children()
+               for w in w.winfo_children()) or any(isinstance(w, ttk.Treeview)
+               for w in market_window.winfo_children()[0].winfo_children())
+    market_window.destroy()
+    app.root.update_idletasks(); app.root.update()
     app._exchange_set_filter('Город', 'Орск')
     assert app.exchange_city == 'Орск'
     app._exchange_set_filter('Город', 'Оренбург')
