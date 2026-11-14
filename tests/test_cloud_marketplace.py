@@ -85,6 +85,36 @@ class CloudMarketplaceClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.client._normalize_listing(payload)
 
+    def test_incoming_responses_are_scoped_to_owned_listings(self):
+        self.client.session = type("Session", (), {
+            "access_token": "token", "refresh_token": "refresh",
+            "user": {"id": "owner-1"},
+        })()
+        with patch.object(self.client, "_request", return_value=[]) as request:
+            self.client.list_incoming_responses(limit=25, offset=10)
+        query = request.call_args.kwargs["query"]
+        self.assertEqual(query["listing.owner_id"], "eq.owner-1")
+        self.assertIn("marketplace_listings!inner", query["select"])
+        self.assertEqual(query["limit"], 25)
+        self.assertEqual(query["offset"], 10)
+
+    def test_incoming_responses_require_authentication(self):
+        with self.assertRaises(CloudMarketplaceError):
+            self.client.list_incoming_responses()
+
+    def test_response_status_is_validated_and_updated(self):
+        self.client.session = type("Session", (), {
+            "access_token": "token", "refresh_token": "refresh",
+            "user": {"id": "owner-1"},
+        })()
+        with self.assertRaises(ValueError):
+            self.client.update_response_status("response-1", "Спам")
+        with patch.object(self.client, "_request", return_value=[{"id": "response-1", "status": "Принят"}]) as request:
+            result = self.client.update_response_status("response-1", "Принят")
+        self.assertEqual(result["status"], "Принят")
+        self.assertEqual(request.call_args.args[0], "PATCH")
+        self.assertEqual(request.call_args.args[2], {"status": "Принят"})
+
     def test_invalid_listing_is_rejected(self):
         with self.assertRaises(ValueError):
             self.client._normalize_listing({"kind": "Неверно"})
