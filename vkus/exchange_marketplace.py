@@ -178,6 +178,13 @@ def open_marketplace_window(parent):
     style.configure("Market.Treeview.Heading", background="#17264a",
                     foreground="#c99aff", font=("DejaVu Sans", 9, "bold"))
     style.map("Market.Treeview", background=[("selected", "#4b258b")])
+    style.configure("TCombobox", fieldbackground="#0a1731", background="#17264a",
+                    foreground="#eaf1ff", arrowcolor="#c99aff",
+                    bordercolor="#304b80", lightcolor="#304b80", darkcolor="#304b80")
+    style.map("TCombobox", fieldbackground=[("readonly", "#0a1731")],
+              foreground=[("readonly", "#eaf1ff")],
+              selectbackground=[("readonly", "#0a1731")],
+              selectforeground=[("readonly", "#eaf1ff")])
 
     shell = tk.Frame(win, bg="#07122a", highlightbackground="#7136c3", highlightthickness=1)
     shell.pack(fill="both", expand=True, padx=10, pady=10)
@@ -195,27 +202,27 @@ def open_marketplace_window(parent):
     category_var = tk.StringVar(value="Все категории")
     city_var = tk.StringVar()
     status_var = tk.StringVar(value="Активно")
-    def field(parent_frame, caption, widget, width=None):
+    def field(parent_frame, caption, widget_type, **widget_options):
         cell = tk.Frame(parent_frame, bg="#07122a")
-        cell.pack(side="left", padx=(0, 10))
+        cell.pack(side="left", padx=(0, 10), anchor="n")
         tk.Label(cell, text=caption, bg="#07122a", fg="#91a8d7",
                  font=("DejaVu Sans", 8)).pack(anchor="w")
+        widget = widget_type(cell, **widget_options)
         widget.pack(fill="x", pady=(3, 0))
-        return cell
-    search = tk.Entry(filters, textvariable=query_var, bg="#0a1731", fg="#f0f4ff",
-                      insertbackground="white", relief="flat", width=27,
-                      font=("DejaVu Sans", 9))
-    field(filters, "Поиск по объявлениям", search)
-    field(filters, "Тип", ttk.Combobox(filters, textvariable=kind_var,
-          values=("Все типы",) + KINDS, state="readonly", width=12))
-    field(filters, "Категория", ttk.Combobox(filters, textvariable=category_var,
-          values=("Все категории",) + CATEGORIES, state="readonly", width=19))
-    field(filters, "Статус", ttk.Combobox(filters, textvariable=status_var,
+        return widget
+    field(filters, "Поиск по объявлениям", tk.Entry, textvariable=query_var,
+          bg="#0a1731", fg="#f0f4ff", insertbackground="white", relief="flat",
+          width=27, font=("DejaVu Sans", 9))
+    field(filters, "Тип", ttk.Combobox, textvariable=kind_var,
+          values=("Все типы",) + KINDS, state="readonly", width=12)
+    field(filters, "Категория", ttk.Combobox, textvariable=category_var,
+          values=("Все категории",) + CATEGORIES, state="readonly", width=19)
+    field(filters, "Статус", ttk.Combobox, textvariable=status_var,
           values=("Активно", "Завершено", "Архив", "Все статусы"),
-          state="readonly", width=12))
-    field(filters, "Город", tk.Entry(filters, textvariable=city_var, bg="#0a1731",
+          state="readonly", width=12)
+    field(filters, "Город", tk.Entry, textvariable=city_var, bg="#0a1731",
           fg="#f0f4ff", insertbackground="white", relief="flat", width=15,
-          font=("DejaVu Sans", 9)))
+          font=("DejaVu Sans", 9))
 
     body = tk.Frame(shell, bg="#07122a")
     body.pack(fill="both", expand=True, padx=18, pady=(0, 10))
