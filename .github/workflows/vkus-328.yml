@@ -1,0 +1,44 @@
+name: Vkus 3.28 build and UI verification
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install system UI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb xauth
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Compile all application modules
+        run: python -m compileall -q main.py vkus tests tools
+      - name: Run message UI test
+        run: xvfb-run -a -s "-screen 0 1672x941x24" python tests/test_messages_ui.py
+      - name: Launch Vkus and capture actual UI
+        run: xvfb-run -a -s "-screen 0 1672x941x24" python tools/render_exchange_full_app.py --output artifacts/Vkus_3.28_LAUNCH.png --geometry 1672x941
+      - name: Package runnable application
+        run: |
+          mkdir -p artifacts
+          zip -qr artifacts/Vkus_3.28_NO_SPLASH.zip main.py run.sh install.sh requirements.txt README.md vkus data -x '*/__pycache__/*' '*.pyc'
+          sha256sum artifacts/Vkus_3.28_NO_SPLASH.zip > artifacts/SHA256SUMS.txt
+          du -h artifacts/Vkus_3.28_NO_SPLASH.zip
+      - name: Upload build and launch evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vkus-3.28-build-and-launch-evidence
+          path: artifacts/
+          if-no-files-found: error
