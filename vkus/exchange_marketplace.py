@@ -382,3 +382,312 @@ def open_marketplace_window(parent):
     refresh()
     win.bind("<Escape>", lambda _e: win.destroy())
     return win
+
+
+
+def open_cloud_marketplace_window(parent):
+    """Open the shared cloud marketplace with account, listing and response actions."""
+    from tkinter import simpledialog
+    from .cloud_marketplace import SupabaseMarketplaceClient, CloudMarketplaceError
+
+    client = SupabaseMarketplaceClient()
+    win = tk.Toplevel(parent)
+    win.title("Vkus — Облачная биржа")
+    win.configure(bg="#050b1b")
+    win.geometry("1180x760")
+    win.minsize(960, 640)
+    win.transient(parent)
+
+    style = ttk.Style(win)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+    style.configure("CloudMarket.Treeview", background="#0a1731",
+                    fieldbackground="#0a1731", foreground="#eaf1ff",
+                    rowheight=36, borderwidth=0, font=("DejaVu Sans", 9))
+    style.configure("CloudMarket.Treeview.Heading", background="#17264a",
+                    foreground="#c99aff", font=("DejaVu Sans", 9, "bold"))
+    style.map("CloudMarket.Treeview", background=[("selected", "#4b258b")])
+
+    shell = tk.Frame(win, bg="#07122a", highlightbackground="#7136c3", highlightthickness=1)
+    shell.pack(fill="both", expand=True, padx=10, pady=10)
+    header = tk.Frame(shell, bg="#07122a")
+    header.pack(fill="x", padx=18, pady=(15, 8))
+    tk.Label(header, text="ОБЛАЧНАЯ БИРЖА VKUS", bg="#07122a", fg="#d18aff",
+             font=("DejaVu Sans", 17, "bold")).pack(side="left")
+    account_label = tk.Label(header, text="Не выполнен вход", bg="#07122a",
+                             fg="#9fb4df", font=("DejaVu Sans", 9))
+    account_label.pack(side="right", padx=8)
+
+    auth_bar = tk.Frame(shell, bg="#0a1731")
+    auth_bar.pack(fill="x", padx=18, pady=(0, 10))
+    email_var = tk.StringVar()
+    password_var = tk.StringVar()
+    tk.Label(auth_bar, text="Email", bg="#0a1731", fg="#9fb4df",
+             font=("DejaVu Sans", 8)).pack(side="left", padx=(10, 4))
+    tk.Entry(auth_bar, textvariable=email_var, width=27, bg="#102044", fg="white",
+             insertbackground="white", relief="flat").pack(side="left", padx=4, pady=8, ipady=4)
+    tk.Label(auth_bar, text="Пароль", bg="#0a1731", fg="#9fb4df",
+             font=("DejaVu Sans", 8)).pack(side="left", padx=(10, 4))
+    tk.Entry(auth_bar, textvariable=password_var, show="•", width=20, bg="#102044",
+             fg="white", insertbackground="white", relief="flat").pack(side="left", padx=4, pady=8, ipady=4)
+
+    filters = tk.Frame(shell, bg="#07122a")
+    filters.pack(fill="x", padx=18, pady=(0, 10))
+    query_var = tk.StringVar()
+    kind_var = tk.StringVar(value="Все типы")
+    category_var = tk.StringVar(value="Все категории")
+    city_var = tk.StringVar()
+    def filter_field(caption, widget):
+        cell = tk.Frame(filters, bg="#07122a")
+        cell.pack(side="left", padx=(0, 9))
+        tk.Label(cell, text=caption, bg="#07122a", fg="#91a8d7",
+                 font=("DejaVu Sans", 8)).pack(anchor="w")
+        widget.pack(fill="x", pady=(3, 0))
+    filter_field("Поиск", tk.Entry(filters, textvariable=query_var, width=28,
+                 bg="#0a1731", fg="white", insertbackground="white", relief="flat"))
+    filter_field("Тип", ttk.Combobox(filters, textvariable=kind_var,
+                 values=("Все типы",) + KINDS, state="readonly", width=13))
+    filter_field("Категория", ttk.Combobox(filters, textvariable=category_var,
+                 values=("Все категории",) + CATEGORIES, state="readonly", width=19))
+    filter_field("Город", tk.Entry(filters, textvariable=city_var, width=17,
+                 bg="#0a1731", fg="white", insertbackground="white", relief="flat"))
+
+    body = tk.Frame(shell, bg="#07122a")
+    body.pack(fill="both", expand=True, padx=18, pady=(0, 10))
+    columns = ("kind", "title", "category", "city", "price", "created_at")
+    table = ttk.Treeview(body, columns=columns, show="headings", style="CloudMarket.Treeview")
+    labels = {"kind":"Тип", "title":"Объявление", "category":"Категория",
+              "city":"Город", "price":"Цена / бюджет", "created_at":"Создано"}
+    widths = {"kind":90, "title":330, "category":150, "city":130, "price":120, "created_at":145}
+    for key in columns:
+        table.heading(key, text=labels[key])
+        table.column(key, width=widths[key], anchor="w")
+    scroll = ttk.Scrollbar(body, orient="vertical", command=table.yview)
+    table.configure(yscrollcommand=scroll.set)
+    table.pack(side="left", fill="both", expand=True)
+    scroll.pack(side="right", fill="y")
+
+    details = tk.Label(shell, text="Объявления загружаются из общей базы Vkus.",
+                       bg="#0a1731", fg="#9fb4df", justify="left", anchor="w",
+                       padx=12, pady=10, font=("DejaVu Sans", 9))
+    details.pack(fill="x", padx=18, pady=(0, 8))
+    actions = tk.Frame(shell, bg="#07122a")
+    actions.pack(fill="x", padx=18, pady=(0, 14))
+    status_label = tk.Label(actions, text="Общая база Supabase · HTTPS",
+                            bg="#07122a", fg="#8fa5d4", font=("DejaVu Sans", 8))
+    status_label.pack(side="left")
+    rows_by_id = {}
+
+    def notify_error(exc):
+        messagebox.showerror("Облачная биржа", str(exc), parent=win)
+
+    def selected():
+        selection = table.selection()
+        return rows_by_id.get(selection[0]) if selection else None
+
+    def refresh(*_):
+        try:
+            rows = client.list_listings(
+                search=query_var.get(), kind=kind_var.get(),
+                category=category_var.get(), city=city_var.get(),
+                limit=100, offset=0,
+            )
+        except (CloudMarketplaceError, ValueError) as exc:
+            notify_error(exc)
+            return
+        rows_by_id.clear()
+        table.delete(*table.get_children())
+        for item in rows:
+            key = str(item["id"])
+            rows_by_id[key] = item
+            created = (item.get("created_at") or "")[:16].replace("T", " ")
+            table.insert("", "end", iid=key, values=(
+                item["kind"], item["title"], item["category"], item["city"],
+                item.get("price") or "—", created,
+            ))
+        status_label.configure(text=f"Объявлений в общей базе: {len(rows)}")
+        show_details()
+
+    def show_details(_event=None):
+        item = selected()
+        if not item:
+            details.configure(text="Выберите объявление, чтобы увидеть описание и контакт.")
+            return
+        own = bool(client.session and item.get("owner_id") == client.session.user.get("id"))
+        details.configure(text=(
+            f"{item['kind']} · {item['category']}\n{item['title']}\n"
+            f"{item['description']}\nГород: {item['city']} · "
+            f"Цена/бюджет: {item.get('price') or 'не указана'} {item.get('currency') or 'RUB'}\n"
+            f"Контакт: {item.get('contact') or 'не указан'}"
+            + (" · Ваше объявление" if own else "")
+        ))
+
+    def sign_in():
+        try:
+            client.sign_in(email_var.get(), password_var.get())
+            account_label.configure(text=client.session.user.get("email", "Вход выполнен"),
+                                     fg="#16f0a1")
+            refresh()
+        except (CloudMarketplaceError, ValueError) as exc:
+            notify_error(exc)
+
+    def sign_up():
+        try:
+            result = client.sign_up(email_var.get(), password_var.get())
+            if client.is_authenticated:
+                account_label.configure(text=client.session.user.get("email", "Вход выполнен"),
+                                         fg="#16f0a1")
+                refresh()
+            else:
+                messagebox.showinfo(
+                    "Подтверждение email",
+                    "Аккаунт создан. Если включено подтверждение email, откройте письмо Supabase, "
+                    "подтвердите адрес и затем войдите.",
+                    parent=win,
+                )
+        except (CloudMarketplaceError, ValueError) as exc:
+            notify_error(exc)
+
+    def sign_out():
+        try:
+            client.sign_out()
+        except CloudMarketplaceError as exc:
+            notify_error(exc)
+        account_label.configure(text="Не выполнен вход", fg="#9fb4df")
+        refresh()
+
+    def create_or_edit(existing=None):
+        if not client.is_authenticated:
+            messagebox.showinfo("Облачная биржа", "Сначала войдите или создайте аккаунт.", parent=win)
+            return
+        dialog = tk.Toplevel(win)
+        dialog.title("Новое объявление" if existing is None else "Редактирование объявления")
+        dialog.configure(bg="#091735")
+        dialog.transient(win)
+        dialog.grab_set()
+        dialog.geometry("600x590")
+        form = tk.Frame(dialog, bg="#091735")
+        form.pack(fill="both", expand=True, padx=22, pady=16)
+        values = {
+            "kind": tk.StringVar(value=(existing or {}).get("kind", "Ищу")),
+            "category": tk.StringVar(value=(existing or {}).get("category", CATEGORIES[0])),
+            "title": tk.StringVar(value=(existing or {}).get("title", "")),
+            "city": tk.StringVar(value=(existing or {}).get("city", "")),
+            "price": tk.StringVar(value=str((existing or {}).get("price") or "")),
+            "currency": tk.StringVar(value=(existing or {}).get("currency", "RUB")),
+            "contact": tk.StringVar(value=(existing or {}).get("contact", "")),
+        }
+        def row(caption, widget):
+            tk.Label(form, text=caption, bg="#091735", fg="#a9badc",
+                     font=("DejaVu Sans", 9, "bold")).pack(anchor="w", pady=(8, 2))
+            widget.pack(fill="x", ipady=4)
+        row("Тип объявления", ttk.Combobox(form, textvariable=values["kind"],
+            values=KINDS, state="readonly"))
+        row("Категория", ttk.Combobox(form, textvariable=values["category"],
+            values=CATEGORIES, state="readonly"))
+        row("Заголовок", tk.Entry(form, textvariable=values["title"], bg="#102044",
+            fg="white", insertbackground="white", relief="flat"))
+        row("Город", tk.Entry(form, textvariable=values["city"], bg="#102044",
+            fg="white", insertbackground="white", relief="flat"))
+        row("Цена / бюджет (число)", tk.Entry(form, textvariable=values["price"], bg="#102044",
+            fg="white", insertbackground="white", relief="flat"))
+        row("Валюта", ttk.Combobox(form, textvariable=values["currency"],
+            values=("RUB", "EUR", "USD"), state="readonly"))
+        row("Контакт", tk.Entry(form, textvariable=values["contact"], bg="#102044",
+            fg="white", insertbackground="white", relief="flat"))
+        tk.Label(form, text="Описание", bg="#091735", fg="#a9badc",
+                 font=("DejaVu Sans", 9, "bold")).pack(anchor="w", pady=(8, 2))
+        description = tk.Text(form, height=5, bg="#102044", fg="white",
+                              insertbackground="white", relief="flat", wrap="word")
+        description.pack(fill="both", expand=True)
+        description.insert("1.0", (existing or {}).get("description", ""))
+
+        def save():
+            payload = {key: var.get().strip() for key, var in values.items()}
+            payload["description"] = description.get("1.0", "end-1c").strip()
+            try:
+                if existing:
+                    client.update_listing(str(existing["id"]), payload)
+                else:
+                    client.create_listing(payload)
+            except (CloudMarketplaceError, ValueError) as exc:
+                notify_error(exc)
+                return
+            dialog.destroy()
+            refresh()
+        tk.Button(form, text="СОХРАНИТЬ", command=save, bg="#6330b4", fg="white",
+                  activebackground="#8549df", relief="flat", padx=18, pady=8).pack(
+                      side="right", pady=(10, 0))
+
+    def respond():
+        item = selected()
+        if not item:
+            messagebox.showinfo("Отклик", "Выберите объявление.", parent=win)
+            return
+        if not client.is_authenticated:
+            messagebox.showinfo("Отклик", "Войдите в аккаунт, чтобы отправить отклик.", parent=win)
+            return
+        if item.get("owner_id") == client.session.user.get("id"):
+            messagebox.showinfo("Отклик", "Нельзя откликнуться на собственное объявление.", parent=win)
+            return
+        message = simpledialog.askstring("Отклик на объявление",
+            "Напишите сообщение автору (до 2000 символов):", parent=win)
+        if message is None:
+            return
+        try:
+            client.respond_to_listing(str(item["id"]), message)
+            messagebox.showinfo("Отклик отправлен", "Ваш отклик сохранён в общей Бирже.", parent=win)
+        except (CloudMarketplaceError, ValueError) as exc:
+            notify_error(exc)
+
+    def remove():
+        item = selected()
+        if not item:
+            messagebox.showinfo("Биржа", "Выберите своё объявление.", parent=win)
+            return
+        if not client.is_authenticated or item.get("owner_id") != client.session.user.get("id"):
+            messagebox.showinfo("Биржа", "Изменять можно только собственные объявления.", parent=win)
+            return
+        if messagebox.askyesno("Удалить объявление", "Удалить объявление из общей Биржи?",
+                               parent=win):
+            try:
+                client.delete_listing(str(item["id"]))
+                refresh()
+            except CloudMarketplaceError as exc:
+                notify_error(exc)
+
+    def edit():
+        item = selected()
+        if not item:
+            messagebox.showinfo("Биржа", "Выберите своё объявление.", parent=win)
+        elif not client.is_authenticated or item.get("owner_id") != client.session.user.get("id"):
+            messagebox.showinfo("Биржа", "Редактировать можно только собственные объявления.", parent=win)
+        else:
+            create_or_edit(item)
+
+    def action(caption, command, color="#182b55"):
+        tk.Button(actions, text=caption, command=command, bg=color, fg="white",
+                  activebackground="#7540c8", activeforeground="white",
+                  relief="flat", bd=0, padx=11, pady=7,
+                  font=("DejaVu Sans", 8, "bold"), cursor="hand2").pack(
+                      side="right", padx=(6, 0))
+
+    tk.Button(auth_bar, text="ВОЙТИ", command=sign_in, bg="#24539b", fg="white",
+              relief="flat", padx=12, pady=6).pack(side="left", padx=(12, 4))
+    tk.Button(auth_bar, text="РЕГИСТРАЦИЯ", command=sign_up, bg="#6330b4", fg="white",
+              relief="flat", padx=12, pady=6).pack(side="left", padx=4)
+    tk.Button(auth_bar, text="ВЫЙТИ", command=sign_out, bg="#4b2842", fg="white",
+              relief="flat", padx=12, pady=6).pack(side="left", padx=4)
+    action("Удалить", remove, "#64263f")
+    action("Редактировать", edit)
+    action("↩ Откликнуться", respond, "#24539b")
+    action("+ Добавить объявление", create_or_edit, "#6330b4")
+
+    table.bind("<<TreeviewSelect>>", show_details)
+    for variable in (query_var, kind_var, category_var, city_var):
+        variable.trace_add("write", refresh)
+    refresh()
+    win.bind("<Escape>", lambda _event: win.destroy())
+    return win
