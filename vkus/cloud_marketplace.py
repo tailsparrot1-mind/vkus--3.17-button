@@ -209,7 +209,7 @@ class SupabaseMarketplaceClient:
     def _ensure_fresh_session(self):
         if not self.session:
             raise CloudMarketplaceError("Сначала войдите в аккаунт Vkus.")
-        if self.session.expires_at and self.session.expires_at <= int(time.time()) + 60:
+        if getattr(self.session, "expires_at", None) and self.session.expires_at <= int(time.time()) + 60:
             try:
                 self.refresh_session()
             except CloudMarketplaceError:
