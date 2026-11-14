@@ -3,6 +3,8 @@ name: Vkus 3.28 build and UI verification
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
