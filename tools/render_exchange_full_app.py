@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from vkus.exchange_visual import install_exchange_visuals
 from vkus.app import VkusApp
+from vkus.cloud_marketplace import SupabaseMarketplaceClient
 install_exchange_visuals()
 
 def main(out, geometry):
@@ -69,23 +70,31 @@ def main(out, geometry):
     # Suppress informational dialogs while exercising click handlers.
     old_showinfo = messagebox.showinfo
     messagebox.showinfo = lambda *args, **kwargs: None
-    # The Exchange CTA opens the actual local-first demand/supply board.
+    # The Exchange CTA opens the shared cloud marketplace. Stub only the
+    # read request so this UI smoke test never depends on external network.
+    original_list = SupabaseMarketplaceClient.list_listings
+    SupabaseMarketplaceClient.list_listings = lambda self, **kwargs: []
     click(1480, 670)
     market_windows = [w for w in app.root.winfo_children()
-                      if isinstance(w, tk.Toplevel) and w.title() == 'Vkus — Биржа объявлений']
+                      if isinstance(w, tk.Toplevel) and w.title() == 'Vkus — Облачная биржа']
     assert len(market_windows) == 1
     market_window = market_windows[0]
-    assert any(isinstance(w, ttk.Treeview) for w in market_window.winfo_children()[0].winfo_children()
-               for w in w.winfo_children()) or any(isinstance(w, ttk.Treeview)
-               for w in market_window.winfo_children()[0].winfo_children())
+    def descendants(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from descendants(child)
+    assert any(isinstance(w, ttk.Treeview) for w in descendants(market_window))
+    assert any(isinstance(w, tk.Button) and w.cget('text') == 'РЕГИСТРАЦИЯ'
+               for w in descendants(market_window))
     market_window.update_idletasks(); market_window.update()
     mx, my = market_window.winfo_rootx(), market_window.winfo_rooty()
     market_image = ImageGrab.grab(bbox=(mx, my, mx + market_window.winfo_width(),
                                         my + market_window.winfo_height())).convert('RGB')
-    market_out = str(Path(out).with_name('Vkus_3.28_MARKETPLACE.png'))
+    market_out = str(Path(out).with_name('Vkus_3.28_CLOUD_MARKETPLACE.png'))
     market_image.save(market_out)
-    print(f'MARKETPLACE_UI_SCREENSHOT={market_out} SIZE={market_image.width}x{market_image.height}')
+    print(f'CLOUD_MARKETPLACE_UI_SCREENSHOT={market_out} SIZE={market_image.width}x{market_image.height}')
     market_window.destroy()
+    SupabaseMarketplaceClient.list_listings = original_list
     app.root.update_idletasks(); app.root.update()
     app._exchange_set_filter('Город', 'Орск')
     assert app.exchange_city == 'Орск'
