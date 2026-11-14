@@ -430,8 +430,7 @@ def open_cloud_marketplace_window(parent):
         else:
             account_label.configure(text=f"{name} · только до закрытия", fg="#ffc46b")
 
-    if client.is_authenticated:
-        update_account_label()
+    update_account_label()
 
     auth_bar = tk.Frame(shell, bg="#0a1731")
     auth_bar.pack(fill="x", padx=18, pady=(0, 10))
