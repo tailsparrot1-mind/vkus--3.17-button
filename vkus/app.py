@@ -10,7 +10,6 @@ from vkus.checks import build_checks
 from vkus.check_runner import CheckRunner, CheckResult
 from vkus.storage import load_settings, save_settings, setup_logging
 from vkus.lock_screen import LockScreen
-from vkus.splash import SplashScreen
 
 try:
     from PIL import Image, ImageTk, ImageEnhance
@@ -124,7 +123,6 @@ class VkusApp:
         self.exchange_page = None
         self.community_picker = None
         self.community_results = []
-        self.splash = None
         self.root.withdraw()
         self.root.protocol('WM_DELETE_WINDOW', self.close)
         self._show_lock()
@@ -133,7 +131,7 @@ class VkusApp:
         self.root.deiconify()
         # Do not force WM "zoomed": on Kali/VMware that can exceed the usable
         # desktop and hide the right panel. Use the calculated geometry above.
-        asset = Path(__file__).resolve().parent.parent / 'assets' / 'panther_lock.png'
+        asset = Path(__file__).resolve().parent / 'assets' / 'panther_lock.png'
         self.lock = LockScreen(self.root, self.settings, asset, self._unlock, self.close,
                                lambda data: save_settings(data))
 
@@ -152,9 +150,7 @@ class VkusApp:
         self.root.bind_all('<MouseWheel>', self._global_results_wheel, add='+')
         self.root.bind_all('<Button-4>', self._global_results_wheel, add='+')
         self.root.bind_all('<Button-5>', self._global_results_wheel, add='+')
-        splash = Path(__file__).resolve().parent.parent / 'assets' / SplashScreen.VIDEO_FILENAME
-        self.splash = SplashScreen(self.root, splash, self._build_ui)
-        self.splash.start()
+        self._build_ui()
 
     def _build_style(self):
         s = ttk.Style(self.root)
@@ -178,7 +174,7 @@ class VkusApp:
         """
         canvas = tk.Canvas(parent, bg=BG, highlightthickness=0, bd=0)
         canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
-        asset = Path(__file__).resolve().parent.parent / 'assets' / 'neon_lion_desktop.png'
+        asset = Path(__file__).resolve().parent / 'assets' / 'neon_lion_desktop.png'
         canvas._bg_source = None
         canvas._bg_photo = None
         if Image is not None and asset.exists():
@@ -1730,11 +1726,6 @@ class VkusApp:
         webbrowser.open(url)
 
     def close(self):
-        try:
-            if self.splash is not None:
-                self.splash.stop()
-        except Exception:
-            pass
         try:
             if getattr(self, 'lock', None) is not None:
                 self.lock.dispose()
