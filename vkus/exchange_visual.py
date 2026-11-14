@@ -496,6 +496,6 @@ def _exchange_redraw(self, _event=None):
     label(326, 913, "Источники: ожидают подключения", 8, "#8fa4ce", width=380, fit=True)
     label(1020, 913, "Данные и статистика появятся после интеграции", 8,
           "#7188b6", "normal", "center", width=540, fit=True)
-    label(1599, 913, "VKUS 3.27", 8, "#9b83c9", "bold", "ne")
+    label(1599, 913, "VKUS 3.28", 8, "#9b83c9", "bold", "ne")
 
     self.exchange_hit_scale = scale
