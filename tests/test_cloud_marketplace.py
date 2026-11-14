@@ -57,6 +57,25 @@ class CloudMarketplaceClientTests(unittest.TestCase):
         self.assertEqual(query["offset"], 40)
         self.assertIn("цветы", query["or"])
 
+    def test_profile_upsert_uses_authenticated_user_id(self):
+        self.client.session = type("Session", (), {
+            "access_token": "token", "refresh_token": "refresh",
+            "user": {"id": "user-9"},
+        })()
+        with patch.object(self.client, "_request", return_value=[{"display_name": "Покупатель"}]) as request:
+            result = self.client.save_my_profile("Покупатель", "Орск")
+        self.assertEqual(result["display_name"], "Покупатель")
+        self.assertEqual(request.call_args.args[2]["id"], "user-9")
+        self.assertEqual(request.call_args.kwargs["query"]["on_conflict"], "id")
+
+    def test_profile_name_is_required(self):
+        self.client.session = type("Session", (), {
+            "access_token": "token", "refresh_token": "refresh",
+            "user": {"id": "user-9"},
+        })()
+        with self.assertRaises(ValueError):
+            self.client.save_my_profile("", "Орск")
+
     def test_price_must_be_nonnegative_number(self):
         payload = {"kind": "Ищу", "category": "Товары", "title": "Куплю цветы",
                    "description": "Букет", "city": "Орск", "price": "не знаю"}
