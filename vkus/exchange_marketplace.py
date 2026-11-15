@@ -549,8 +549,9 @@ def open_cloud_marketplace_window(parent):
             card = tk.Frame(cards_frame, bg="#0b1a39",
                             highlightbackground="#304779", highlightthickness=1,
                             padx=14, pady=12)
-            card.grid(row=index // 2, column=index % 2, sticky="nsew",
-                      padx=8, pady=8)
+            card.grid(row=index // 2, column=index % 2,
+                      columnspan=2 if len(rows) == 1 else 1,
+                      sticky="nsew", padx=8, pady=8)
             top = tk.Frame(card, bg="#0b1a39")
             top.pack(fill="x")
             tk.Label(top, text=kind.upper(), bg="#24104d" if kind == "Ищу" else "#0d3452",
