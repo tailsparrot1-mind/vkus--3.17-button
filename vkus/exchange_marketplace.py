@@ -376,6 +376,7 @@ def open_marketplace_window(parent):
     action("Редактировать", edit)
     action("+ Добавить объявление", add, "#6330b4")
 
+    table.bind("<<TreeviewSelect>>", show_details)
     for var in (query_var, kind_var, category_var, city_var, status_var):
         var.trace_add("write", refresh)
     refresh()
