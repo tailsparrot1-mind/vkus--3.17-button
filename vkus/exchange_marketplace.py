@@ -392,7 +392,7 @@ def open_cloud_marketplace_window(parent):
 
     client = SupabaseMarketplaceClient()
     win = tk.Toplevel(parent)
-    win.title("Vkus — Облачная биржа")
+    win.title("Vkus — Доска объявлений")
     win.configure(bg="#050b1b")
     win.geometry("1180x760")
     win.minsize(960, 640)
@@ -405,7 +405,14 @@ def open_cloud_marketplace_window(parent):
         pass
     style.configure("CloudMarket.Treeview", background="#0a1731",
                     fieldbackground="#0a1731", foreground="#eaf1ff",
-                    rowheight=36, borderwidth=0, font=("DejaVu Sans", 9))
+                    rowheight=42, borderwidth=0, relief="flat",
+                    font=("DejaVu Sans", 9))
+    style.layout("CloudMarket.Treeview", [("Treeview.treearea", {"sticky": "nswe"})])
+    style.configure("CloudMarket.Vertical.TScrollbar", troughcolor="#07122a",
+                    background="#263d70", bordercolor="#07122a",
+                    arrowcolor="#b98aff", relief="flat", width=10)
+    style.map("CloudMarket.Vertical.TScrollbar",
+              background=[("active", "#7540c8")])
     style.configure("CloudMarket.Treeview.Heading", background="#17264a",
                     foreground="#c99aff", font=("DejaVu Sans", 9, "bold"))
     style.map("CloudMarket.Treeview", background=[("selected", "#4b258b")])
@@ -414,7 +421,7 @@ def open_cloud_marketplace_window(parent):
     shell.pack(fill="both", expand=True, padx=10, pady=10)
     header = tk.Frame(shell, bg="#07122a")
     header.pack(fill="x", padx=18, pady=(15, 8))
-    tk.Label(header, text="ОБЛАЧНАЯ БИРЖА VKUS", bg="#07122a", fg="#d18aff",
+    tk.Label(header, text="ДОСКА ОБЪЯВЛЕНИЙ", bg="#07122a", fg="#d18aff",
              font=("DejaVu Sans", 17, "bold")).pack(side="left")
     account_label = tk.Label(header, text="Не выполнен вход", bg="#07122a",
                              fg="#9fb4df", font=("DejaVu Sans", 9))
@@ -440,11 +447,13 @@ def open_cloud_marketplace_window(parent):
     tk.Label(auth_bar, text="Email", bg="#0a1731", fg="#9fb4df",
              font=("DejaVu Sans", 8)).pack(side="left", padx=(10, 4))
     tk.Entry(auth_bar, textvariable=email_var, width=27, bg="#102044", fg="white",
-             insertbackground="white", relief="flat").pack(side="left", padx=4, pady=8, ipady=4)
+             insertbackground="white", relief="flat", bd=0, highlightthickness=1,
+             highlightbackground="#304b80", highlightcolor="#8d4cff").pack(side="left", padx=4, pady=8, ipady=4)
     tk.Label(auth_bar, text="Пароль", bg="#0a1731", fg="#9fb4df",
              font=("DejaVu Sans", 8)).pack(side="left", padx=(10, 4))
     tk.Entry(auth_bar, textvariable=password_var, show="•", width=20, bg="#102044",
-             fg="white", insertbackground="white", relief="flat").pack(side="left", padx=4, pady=8, ipady=4)
+             fg="white", insertbackground="white", relief="flat", bd=0, highlightthickness=1,
+             highlightbackground="#304b80", highlightcolor="#8d4cff").pack(side="left", padx=4, pady=8, ipady=4)
 
     filters = tk.Frame(shell, bg="#07122a")
     filters.pack(fill="x", padx=18, pady=(0, 10))
@@ -452,20 +461,26 @@ def open_cloud_marketplace_window(parent):
     kind_var = tk.StringVar(value="Все типы")
     category_var = tk.StringVar(value="Все категории")
     city_var = tk.StringVar()
-    def filter_field(caption, widget):
+    def filter_field(caption, widget_type, **options):
         cell = tk.Frame(filters, bg="#07122a")
-        cell.pack(side="left", padx=(0, 9))
+        cell.pack(side="left", padx=(0, 9), anchor="n")
         tk.Label(cell, text=caption, bg="#07122a", fg="#91a8d7",
                  font=("DejaVu Sans", 8)).pack(anchor="w")
+        widget = widget_type(cell, **options)
         widget.pack(fill="x", pady=(3, 0))
-    filter_field("Поиск", tk.Entry(filters, textvariable=query_var, width=28,
-                 bg="#0a1731", fg="white", insertbackground="white", relief="flat"))
-    filter_field("Тип", ttk.Combobox(filters, textvariable=kind_var,
-                 values=("Все типы",) + KINDS, state="readonly", width=13))
-    filter_field("Категория", ttk.Combobox(filters, textvariable=category_var,
-                 values=("Все категории",) + CATEGORIES, state="readonly", width=19))
-    filter_field("Город", tk.Entry(filters, textvariable=city_var, width=17,
-                 bg="#0a1731", fg="white", insertbackground="white", relief="flat"))
+        return widget
+    filter_field("Поиск", tk.Entry, textvariable=query_var, width=28,
+                 bg="#0a1731", fg="white", insertbackground="white", relief="flat",
+                 bd=0, highlightthickness=1, highlightbackground="#304b80",
+                 highlightcolor="#8d4cff", font=("DejaVu Sans", 9))
+    filter_field("Тип", ttk.Combobox, textvariable=kind_var,
+                 values=("Все типы",) + KINDS, state="readonly", width=13)
+    filter_field("Категория", ttk.Combobox, textvariable=category_var,
+                 values=("Все категории",) + CATEGORIES, state="readonly", width=19)
+    filter_field("Город", tk.Entry, textvariable=city_var, width=17,
+                 bg="#0a1731", fg="white", insertbackground="white", relief="flat",
+                 bd=0, highlightthickness=1, highlightbackground="#304b80",
+                 highlightcolor="#8d4cff", font=("DejaVu Sans", 9))
 
     body = tk.Frame(shell, bg="#07122a")
     body.pack(fill="both", expand=True, padx=18, pady=(0, 10))
