@@ -376,7 +376,6 @@ def open_marketplace_window(parent):
     action("Редактировать", edit)
     action("+ Добавить объявление", add, "#6330b4")
 
-    table.bind("<<TreeviewSelect>>", show_details)
     for var in (query_var, kind_var, category_var, city_var, status_var):
         var.trace_add("write", refresh)
     refresh()
@@ -483,19 +482,21 @@ def open_cloud_marketplace_window(parent):
                  highlightcolor="#8d4cff", font=("DejaVu Sans", 9))
 
     body = tk.Frame(shell, bg="#07122a")
-    body.pack(fill="both", expand=True, padx=18, pady=(0, 10))
-    columns = ("kind", "title", "category", "city", "price", "created_at")
-    table = ttk.Treeview(body, columns=columns, show="headings", style="CloudMarket.Treeview")
-    labels = {"kind":"Тип", "title":"Объявление", "category":"Категория",
-              "city":"Город", "price":"Цена / бюджет", "created_at":"Создано"}
-    widths = {"kind":90, "title":330, "category":150, "city":130, "price":120, "created_at":145}
-    for key in columns:
-        table.heading(key, text=labels[key])
-        table.column(key, width=widths[key], anchor="w")
-    scroll = ttk.Scrollbar(body, orient="vertical", command=table.yview)
-    table.configure(yscrollcommand=scroll.set)
-    table.pack(side="left", fill="both", expand=True)
-    scroll.pack(side="right", fill="y")
+    body.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+    cards_canvas = tk.Canvas(body, bg="#07122a", highlightthickness=0, bd=0)
+    cards_scroll = ttk.Scrollbar(body, orient="vertical", command=cards_canvas.yview,
+                                 style="CloudMarket.Vertical.TScrollbar")
+    cards_canvas.configure(yscrollcommand=cards_scroll.set)
+    cards_canvas.pack(side="left", fill="both", expand=True)
+    cards_scroll.pack(side="right", fill="y")
+    cards_frame = tk.Frame(cards_canvas, bg="#07122a")
+    cards_window = cards_canvas.create_window((0, 0), window=cards_frame, anchor="nw")
+    cards_frame.bind("<Configure>", lambda _e: cards_canvas.configure(
+        scrollregion=cards_canvas.bbox("all")))
+    cards_canvas.bind("<Configure>", lambda event: cards_canvas.itemconfigure(
+        cards_window, width=event.width))
+    cards_frame.grid_columnconfigure(0, weight=1, uniform="market-cards")
+    cards_frame.grid_columnconfigure(1, weight=1, uniform="market-cards")
 
     details = tk.Label(shell, text="Объявления загружаются из общей базы Vkus.",
                        bg="#0a1731", fg="#9fb4df", justify="left", anchor="w",
@@ -507,13 +508,13 @@ def open_cloud_marketplace_window(parent):
                             bg="#07122a", fg="#8fa5d4", font=("DejaVu Sans", 8))
     status_label.pack(side="left")
     rows_by_id = {}
+    selected_id = {"value": None}
 
     def notify_error(exc):
-        messagebox.showerror("Облачная биржа", str(exc), parent=win)
+        messagebox.showerror("Доска объявлений", str(exc), parent=win)
 
     def selected():
-        selection = table.selection()
-        return rows_by_id.get(selection[0]) if selection else None
+        return rows_by_id.get(selected_id["value"])
 
     def refresh(*_):
         try:
@@ -526,15 +527,64 @@ def open_cloud_marketplace_window(parent):
             notify_error(exc)
             return
         rows_by_id.clear()
-        table.delete(*table.get_children())
-        for item in rows:
+        selected_id["value"] = None
+        for child in cards_frame.winfo_children():
+            child.destroy()
+        if not rows:
+            empty = tk.Frame(cards_frame, bg="#0a1731",
+                             highlightbackground="#334b7e", highlightthickness=1)
+            empty.grid(row=0, column=0, columnspan=2, sticky="nsew",
+                       padx=8, pady=8, ipady=48)
+            tk.Label(empty, text="ПОКА НЕТ ОБЪЯВЛЕНИЙ", bg="#0a1731",
+                     fg="#d7a0ff", font=("DejaVu Sans", 13, "bold")).pack(pady=(24, 8))
+            tk.Label(empty, text="Создайте первое объявление — оно появится здесь для всех пользователей Vkus.",
+                     bg="#0a1731", fg="#9fb4df", font=("DejaVu Sans", 9),
+                     wraplength=720, justify="center").pack(pady=(0, 22))
+        for index, item in enumerate(rows):
             key = str(item["id"])
             rows_by_id[key] = item
-            created = (item.get("created_at") or "")[:16].replace("T", " ")
-            table.insert("", "end", iid=key, values=(
-                item["kind"], item["title"], item["category"], item["city"],
-                item.get("price") or "—", created,
-            ))
+            kind = item.get("kind") or "Ищу"
+            accent = "#b75cff" if kind == "Ищу" else "#24bde9"
+            card = tk.Frame(cards_frame, bg="#0b1a39",
+                            highlightbackground="#304779", highlightthickness=1,
+                            padx=14, pady=12)
+            card.grid(row=index // 2, column=index % 2, sticky="nsew",
+                      padx=8, pady=8)
+            top = tk.Frame(card, bg="#0b1a39")
+            top.pack(fill="x")
+            tk.Label(top, text=kind.upper(), bg="#24104d" if kind == "Ищу" else "#0d3452",
+                     fg=accent, font=("DejaVu Sans", 8, "bold"),
+                     padx=9, pady=4).pack(side="left")
+            created = (item.get("created_at") or "")[:10]
+            tk.Label(top, text=created, bg="#0b1a39", fg="#728bb8",
+                     font=("DejaVu Sans", 8)).pack(side="right")
+            tk.Label(card, text=item.get("title") or "Без заголовка",
+                     bg="#0b1a39", fg="#f0f4ff",
+                     font=("DejaVu Sans", 11, "bold"),
+                     anchor="w", justify="left", wraplength=470).pack(fill="x", pady=(10, 5))
+            summary = (item.get("description") or "").replace("\\n", " ").strip()
+            if len(summary) > 155:
+                summary = summary[:152] + "…"
+            tk.Label(card, text=summary, bg="#0b1a39", fg="#a9badc",
+                     font=("DejaVu Sans", 8), anchor="w", justify="left",
+                     wraplength=470).pack(fill="x", pady=(0, 10))
+            meta = f"{item.get('category') or 'Без категории'}  ·  {item.get('city') or 'Город не указан'}"
+            if item.get("price"):
+                meta += f"  ·  {item.get('price')} {item.get('currency') or 'RUB'}"
+            tk.Label(card, text=meta, bg="#0b1a39", fg="#b98aff",
+                     font=("DejaVu Sans", 8, "bold"), anchor="w",
+                     wraplength=470).pack(fill="x")
+            def choose(_event=None, listing_key=key, selected_card=card):
+                selected_id["value"] = listing_key
+                for sibling in cards_frame.winfo_children():
+                    if isinstance(sibling, tk.Frame):
+                        sibling.configure(highlightbackground="#304779")
+                selected_card.configure(highlightbackground="#b75cff")
+                show_details()
+            for widget in (card, top, *card.winfo_children()):
+                widget.bind("<Button-1>", choose, add="+")
+                for child in widget.winfo_children():
+                    child.bind("<Button-1>", choose, add="+")
         status_label.configure(text=f"Объявлений в общей базе: {len(rows)}")
         show_details()
 
