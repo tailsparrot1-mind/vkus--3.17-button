@@ -902,7 +902,6 @@ def open_cloud_marketplace_window(parent):
     action("↩ Откликнуться", respond, "#24539b")
     action("+ Добавить объявление", create_or_edit, "#6330b4")
 
-    table.bind("<<TreeviewSelect>>", show_details)
     for variable in (query_var, kind_var, category_var, city_var):
         variable.trace_add("write", refresh)
     refresh()
